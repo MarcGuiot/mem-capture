@@ -14,7 +14,7 @@ public class AllocationRecorderUtil {
     private static Instrumentation instrumentation;
     private static OutputStream outputStream;
 
-    public static void setInstrumentation(Instrumentation inst) {
+    public static void init(Instrumentation inst) {
         instrumentation = inst;
         try {
             outputStream = new BufferedOutputStream(
@@ -24,52 +24,57 @@ public class AllocationRecorderUtil {
     }
 
     public static void record(String className) {
-        if (IN_RECORDER.get()) return;
+        if (IN_RECORDER.get()) {
+            return;
+        }
         IN_RECORDER.set(true);
         try {
-            try {
-                synchronized (outputStream) {
-                    final byte[] bytes = className.getBytes(StandardCharsets.UTF_8);
-                    outputStream.write(CLASS);
-                    outputStream.write(bytes);
+            synchronized (outputStream) {
+                final byte[] bytes = className.getBytes(StandardCharsets.UTF_8);
+                outputStream.write(CLASS);
+                outputStream.write(bytes);
+                outputStream.write(RET);
+                final StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+                for (int i = 2; i < Math.min(stackTrace.length, MAX_STACK); i++) {
+                    outputStream.write(stackTrace[i].toString().getBytes(StandardCharsets.UTF_8));
                     outputStream.write(RET);
-                    final StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-                    for (int i = 2; i < Math.min(stackTrace.length, MAX_STACK); i++) {
-                        outputStream.write(stackTrace[i].toString().getBytes(StandardCharsets.UTF_8));
-                        outputStream.write(RET);
-                    }
                 }
-            } catch (IOException e) {
+                outputStream.flush();
             }
-        } finally {
+        } catch (Exception e) {
+            System.err.println(e.getMessage());
+            } finally {
             IN_RECORDER.set(false);
         }
     }
 
     public static void recordArray(Object array, String type) {
-        if (IN_RECORDER.get()) return;
+        if (IN_RECORDER.get()) {
+            return;
+        }
         IN_RECORDER.set(true);
         try {
 //            long size = -1;
 //            if (instrumentation != null && array != null) {
 //                size = instrumentation.getObjectSize(array);
 //            }
-            try {
-                synchronized (outputStream) {
-                    final byte[] bytes = type.getBytes(StandardCharsets.UTF_8);
-                    outputStream.write(ARRAY);
-                    outputStream.write(bytes);
+            synchronized (outputStream) {
+                final byte[] bytes = type.getBytes(StandardCharsets.UTF_8);
+                outputStream.write(ARRAY);
+                outputStream.write(bytes);
+                outputStream.write(RET);
+                final StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+                for (int i = 2; i < Math.min(stackTrace.length, MAX_STACK); i++) {
+                    outputStream.write(stackTrace[i].toString().getBytes(StandardCharsets.UTF_8));
                     outputStream.write(RET);
-                    final StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-                    for (int i = 2; i < Math.min(stackTrace.length, MAX_STACK); i++) {
-                        outputStream.write(stackTrace[i].toString().getBytes(StandardCharsets.UTF_8));
-                        outputStream.write(RET);
-                    }
                 }
-            } catch (IOException e) {
-            }
+                outputStream.flush();
+
 //            AllocationEvent event = new AllocationEvent(type, size);
 //            event.commit();
+            }
+        } catch (Exception e) {
+            System.err.println(e.getMessage());
         } finally {
             IN_RECORDER.set(false);
         }

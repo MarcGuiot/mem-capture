@@ -40,7 +40,7 @@ public class AllocationTransformerAgent {
             System.err.println("Failed to append to bootstrap class loader search: " + e.getMessage());
         }
 
-        AllocationRecorderUtil.setInstrumentation(inst);
+        AllocationRecorderUtil.init(inst);
         inst.addTransformer(new ClassFileTransformer() {
             @Override
             public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined,
