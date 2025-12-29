@@ -36,7 +36,7 @@ public class AllocationTransformerAgent {
                                     ProtectionDomain protectionDomain, byte[] classfileBuffer) {
                 // Don't instrument system classes or our own recorder to avoid infinite loops
                 if (className == null ||
-//                    className.startsWith("java/") ||
+                    className.startsWith("java/lang/ThreadLocal") ||
                     className.startsWith("jdk/") ||
                     className.startsWith("sun/") ||
                     className.startsWith("com/sun/") ||
