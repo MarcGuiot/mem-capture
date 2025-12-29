@@ -16,7 +16,8 @@ public class AllocationTrackingTransformer extends ClassVisitor {
                 super.visitTypeInsn(opcode, type);
                 if (opcode == Opcodes.NEW) {
                     mv.visitLdcInsn(type);
-                    mv.visitMethodInsn(Opcodes.INVOKESTATIC, "org/globsframework/memory/AllocationRecorderUtil", "record", "(Ljava/lang/String;)V", false);
+                    mv.visitLdcInsn(Type.getObjectType(type));
+                    mv.visitMethodInsn(Opcodes.INVOKESTATIC, "org/globsframework/memory/AllocationRecorderUtil", "record", "(Ljava/lang/String;Ljava/lang/Class;)V", false);
                 } else if (opcode == Opcodes.ANEWARRAY) {
                     mv.visitInsn(Opcodes.DUP);
                     mv.visitLdcInsn(type);

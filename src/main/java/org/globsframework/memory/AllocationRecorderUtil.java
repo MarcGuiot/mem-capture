@@ -47,12 +47,38 @@ public class AllocationRecorderUtil {
         }
     }
 
-    public static void record(String className) {
+    private static final java.util.Map<String, Long> sizeCache = new java.util.concurrent.ConcurrentHashMap<>();
+    private static sun.misc.Unsafe unsafe;
+    static {
+        try {
+            java.lang.reflect.Field f = sun.misc.Unsafe.class.getDeclaredField("theUnsafe");
+            f.setAccessible(true);
+            unsafe = (sun.misc.Unsafe) f.get(null);
+        } catch (Exception e) {}
+    }
+
+    public static void record(String className, Class<?> clazz) {
         if (!running || IN_RECORDER.get()) {
             return;
         }
         IN_RECORDER.set(true);
         try {
+            long size = -1;
+            if (instrumentation != null && clazz != null) {
+                Long cachedSize = sizeCache.get(className);
+                if (cachedSize != null) {
+                    size = cachedSize;
+                } else {
+                    if (unsafe != null) {
+                        try {
+                            Object dummy = unsafe.allocateInstance(clazz);
+                            size = instrumentation.getObjectSize(dummy);
+                            sizeCache.put(className, size);
+                        } catch (Exception e) {
+                        }
+                    }
+                }
+            }
             synchronized (outputStream) {
                 final OutputStream tmp = outputStream;
                 tmp.write(SEPARATOR);
@@ -60,6 +86,8 @@ public class AllocationRecorderUtil {
                 final byte[] bytes = className.getBytes(StandardCharsets.UTF_8);
                 tmp.write(CLASS);
                 tmp.write(bytes);
+                tmp.write(' ');
+                tmp.write(Long.toString(size).getBytes(StandardCharsets.UTF_8));
                 tmp.write(RET);
                 dumpStackTrace(tmp);
             }
