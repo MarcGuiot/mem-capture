@@ -13,6 +13,7 @@ public class AllocationRecorderUtil {
     public static final int MAX_STACK = 20;
     private static Instrumentation instrumentation;
     private static OutputStream outputStream;
+    private static volatile boolean running = true;
 
     public static void init(Instrumentation inst) {
         instrumentation = inst;
@@ -24,7 +25,7 @@ public class AllocationRecorderUtil {
     }
 
     public static void record(String className) {
-        if (IN_RECORDER.get()) {
+        if (!running || IN_RECORDER.get()) {
             return;
         }
         IN_RECORDER.set(true);
@@ -49,7 +50,7 @@ public class AllocationRecorderUtil {
     }
 
     public static void recordArray(Object array, String type) {
-        if (IN_RECORDER.get()) {
+        if (!running || IN_RECORDER.get()) {
             return;
         }
         IN_RECORDER.set(true);
@@ -78,5 +79,10 @@ public class AllocationRecorderUtil {
         } finally {
             IN_RECORDER.set(false);
         }
+    }
+
+    public static void toggle() {
+        running = !running;
+        System.out.println("Allocation tracing: " + (running ? "ON" : "OFF"));
     }
 }
