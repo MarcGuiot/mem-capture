@@ -1,6 +1,9 @@
 package org.globsframework.memory;
 
-import java.io.*;
+import java.io.BufferedOutputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.lang.instrument.Instrumentation;
 import java.nio.charset.StandardCharsets;
 
@@ -13,7 +16,7 @@ public class AllocationRecorderUtil {
     public static final int MAX_STACK = 20;
     private static Instrumentation instrumentation;
     private static OutputStream outputStream;
-    private static volatile boolean running = true;
+    private static volatile boolean running = System.getProperty("ALLOCATION_TRACING") != null;
 
     public static void init(Instrumentation inst) {
         instrumentation = inst;
@@ -42,9 +45,9 @@ public class AllocationRecorderUtil {
                 }
                 outputStream.flush();
             }
-        } catch (Exception e) {
+        } catch (Throwable e) {
             System.err.println(e.getMessage());
-            } finally {
+        } finally {
             IN_RECORDER.set(false);
         }
     }
@@ -74,7 +77,7 @@ public class AllocationRecorderUtil {
 //            AllocationEvent event = new AllocationEvent(type, size);
 //            event.commit();
             }
-        } catch (Exception e) {
+        } catch (Throwable e) {
             System.err.println(e.getMessage());
         } finally {
             IN_RECORDER.set(false);
