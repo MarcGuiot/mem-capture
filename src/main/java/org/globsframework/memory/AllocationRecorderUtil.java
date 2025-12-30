@@ -5,6 +5,7 @@ import java.lang.instrument.Instrumentation;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.ZonedDateTime;
+import java.util.Set;
 import java.util.stream.Stream;
 
 public class AllocationRecorderUtil {
@@ -22,6 +23,7 @@ public class AllocationRecorderUtil {
     private static Clock clock;
     private static boolean withStackTrace;
     private static String[] ignoreThread;
+    private static Set<String> stackOnlyFor = Set.of();
 
     public static void init(Instrumentation inst) {
         clock = Clock.systemDefaultZone();
@@ -56,19 +58,21 @@ public class AllocationRecorderUtil {
 
     private static final java.util.Map<String, Long> sizeCache = new java.util.concurrent.ConcurrentHashMap<>();
     private static sun.misc.Unsafe unsafe;
+
     static {
         try {
             java.lang.reflect.Field f = sun.misc.Unsafe.class.getDeclaredField("theUnsafe");
             f.setAccessible(true);
             unsafe = (sun.misc.Unsafe) f.get(null);
-        } catch (Exception e) {}
+        } catch (Exception e) {
+        }
     }
 
     public static void record(String className, Class<?> clazz) {
         if (!running || IN_RECORDER.get()) {
             return;
         }
-        if (shouldIgnoreThread()){
+        if (shouldIgnoreThread()) {
             return;
         }
         IN_RECORDER.set(true);
@@ -97,7 +101,7 @@ public class AllocationRecorderUtil {
                 tmp.write(bytes);
                 tmp.write(' ');
                 tmp.write(Long.toString(size).getBytes(StandardCharsets.UTF_8));
-                if (withStackTrace) {
+                if (withStackTrace || stackOnlyFor.contains(className)) {
                     dumpStackTrace(tmp);
                 }
                 tmp.write(RET);
@@ -125,7 +129,7 @@ public class AllocationRecorderUtil {
         if (!running || IN_RECORDER.get()) {
             return;
         }
-        if (shouldIgnoreThread()){
+        if (shouldIgnoreThread()) {
             return;
         }
         IN_RECORDER.set(true);
@@ -141,7 +145,7 @@ public class AllocationRecorderUtil {
                 tmp.write(type.getBytes(StandardCharsets.UTF_8));
                 tmp.write(' ');
                 tmp.write(Long.toString(size).getBytes(StandardCharsets.UTF_8));
-                if (withStackTrace) {
+                if (withStackTrace || stackOnlyFor.contains(type)) {
                     dumpStackTrace(tmp);
                 }
                 tmp.write(RET);
@@ -176,6 +180,7 @@ public class AllocationRecorderUtil {
     }
 
     static String WITH_STACK_TRACE = "WithStackTrace";
+    static String ONLY_STACK_TRACE = "StackTraceForClasses";
     static String IGNORE_THREAD = "IgnoreThread";
 
     public static void reloadConf() {
@@ -184,16 +189,23 @@ public class AllocationRecorderUtil {
         }
         final File file = new File(CONFIG_MEM);
         if (file.exists()) {
-            try(BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file)))) {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file)))) {
                 final Stream<String> lines = reader.lines();
                 withStackTrace = false;
                 ignoreThread = null;
+                stackOnlyFor = Set.of();
                 lines.forEach(s -> {
                     final String[] split = s.split("=");
                     String cmd = split[0].trim();
                     String value = split[1].trim();
+                    if (value.isEmpty()) {
+                        return;
+                    }
                     if (cmd.equals(WITH_STACK_TRACE)) {
                         withStackTrace = Boolean.parseBoolean(value);
+                    }
+                    if (cmd.equals(ONLY_STACK_TRACE)) {
+                        stackOnlyFor = Set.of(value.split(","));
                     }
                     if (cmd.equals(IGNORE_THREAD)) {
                         ignoreThread = value.split(",");
