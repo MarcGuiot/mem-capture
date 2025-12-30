@@ -3,7 +3,6 @@ package org.globsframework.memory;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import sun.misc.Signal;
-import sun.misc.SignalHandler;
 
 import java.io.File;
 import java.lang.instrument.ClassFileTransformer;
@@ -23,9 +22,9 @@ public class AllocationTransformerAgent {
 
         AllocationRecorderUtil.init(inst);
 
-        SignalHandler handler = signal -> AllocationRecorderUtil.toggle();
         try {
-            Signal.handle(new Signal("USR1"), handler);
+            Signal.handle(new Signal("USR1"), signal -> AllocationRecorderUtil.toggle());
+            Signal.handle(new Signal("USR2"), signal -> AllocationRecorderUtil.reloadConf());
         } catch (Exception e) {
             System.err.println("Failed to register USR1 signal handler: " + e.getMessage());
         }
@@ -34,7 +33,6 @@ public class AllocationTransformerAgent {
             @Override
             public byte[] transform(ClassLoader loader, String className, Class<?> classBeingRedefined,
                                     ProtectionDomain protectionDomain, byte[] classfileBuffer) {
-                // Don't instrument system classes or our own recorder to avoid infinite loops
                 if (className == null ||
                     className.startsWith("java/lang/ThreadLocal") ||
                     className.startsWith("jdk/") ||
